@@ -59,6 +59,40 @@
 > 如果你希望从“运行时逻辑”而不是“文件分类”理解项目，优先走这一条主线。  
 > 每个事件节点都对应真实代码文件，可边读边发请求验证。
 
+### 请求入口专项学习（7 步，从外到内）
+
+> 目标：先打通 `/api/chat` 的完整链路，再深入模型与存储细节。
+
+1. **前端请求发起**
+   - 看：`frontend/src/lib/api.ts`
+   - 重点：`streamChat()` 如何组装 `/api/chat` 请求、如何解析 SSE 事件块并触发 `onEvent`
+
+2. **后端路由挂载**
+   - 看：`backend/app.py`
+   - 重点：`chat_router` 通过 `prefix="/api"` 挂载，最终请求路径为何是 `/api/chat`
+
+3. **请求入口函数本身**
+   - 看：`backend/api/chat.py`
+   - 重点：`@router.post("/chat")` 的参数模型校验、session 初始化、错误兜底
+
+4. **流式协议与事件转发**
+   - 看：`backend/api/chat.py`
+   - 重点：`_sse()` 与 `event_generator()` 如何把内部事件转换为前端可消费的 SSE
+
+5. **Agent 事件来源**
+   - 看：`backend/graph/agent.py`
+   - 重点：`astream()` 如何产出 `token / tool_start / tool_end / new_response / done` 等事件
+
+6. **会话持久化逻辑**
+   - 看：`backend/graph/session_manager.py` + `backend/api/chat.py`
+   - 重点：入口何时读历史、何时保存 user/assistant 消息、何时写入工具调用
+
+7. **首条消息特殊流程**
+   - 看：`backend/api/chat.py` + `backend/graph/agent.py`
+   - 重点：`is_first_user_message`、`generate_title()`、`title` 事件回推
+
+**建议顺序：** `api.ts -> app.py -> chat.py -> agent.py -> session_manager.py`（先看路径与事件，再看模型与存储）。
+
 ### 1) 请求入口事件（HTTP 到达）
 
 - 看：`backend/api/chat.py`
