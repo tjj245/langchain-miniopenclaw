@@ -54,6 +54,69 @@
 
 ---
 
+## 按一次请求的事件链学习（推荐主线）
+
+> 如果你希望从“运行时逻辑”而不是“文件分类”理解项目，优先走这一条主线。  
+> 每个事件节点都对应真实代码文件，可边读边发请求验证。
+
+### 1) 请求入口事件（HTTP 到达）
+
+- 看：`backend/api/chat.py`
+- 目标：理解 `POST /api/chat` 的入参：`message`、`session_id`、`stream`
+
+### 2) 会话加载事件（上下文准备）
+
+- 看：`backend/api/chat.py` + `backend/graph/session_manager.py`
+- 目标：搞清 `load_session_record` / `load_session_for_agent` 如何组装历史
+
+### 3) RAG 决策事件（是否检索记忆）
+
+- 看：`backend/graph/agent.py` + `backend/graph/memory_indexer.py` + `backend/config.py`
+- 目标：理解 `rag_mode` 开关与 `retrieval` 事件触发条件
+
+### 4) 系统提示词组装事件（Prompt 构建）
+
+- 看：`backend/graph/prompt_builder.py` + `backend/workspace/*.md` + `backend/SKILLS_SNAPSHOT.md` + `backend/memory/MEMORY.md`
+- 目标：明确每次请求的 system prompt 来源和拼装顺序
+
+### 5) Agent 创建事件（模型 + 工具注入）
+
+- 看：`backend/graph/agent.py` + `backend/tools/__init__.py` + `backend/config.py`
+- 目标：理解 `create_agent` 如何绑定模型与工具列表
+
+### 6) 流式输出事件（token 流）
+
+- 看：`backend/graph/agent.py`（`astream`）+ `backend/api/chat.py`（`_sse`）
+- 目标：分清 `messages` 模式产出 `token`，`updates` 模式产出工具相关事件
+
+### 7) 工具调用事件（tool_start / tool_end / new_response）
+
+- 看：`backend/graph/agent.py` + `backend/tools/*.py`
+- 目标：理解工具输入输出如何封装为 SSE 事件并返回前端
+
+### 8) 完成事件（done + 持久化）
+
+- 看：`backend/api/chat.py` + `backend/graph/session_manager.py`
+- 目标：确认 `done` 后 user/assistant/tool_calls 如何写入 `sessions/*.json`
+
+### 9) 首轮标题事件（title）
+
+- 看：`backend/api/chat.py` + `backend/graph/agent.py`（`generate_title`）
+- 目标：理解为什么仅在首条用户消息后生成标题
+
+### 10) 前端消费事件（SSE 渲染）
+
+- 看：`frontend/src/lib/api.ts`（`streamChat`）+ `frontend/src/lib/store.tsx`（`onEvent`）+ `frontend/src/components/chat/*`
+- 目标：建立事件到 UI 的映射：`token` → 文本增量、`tool_*` → ThoughtChain、`retrieval` → RetrievalCard、`done` → 消息落定
+
+### 按轮次的实操验证（建议 5 轮）
+
+1. 普通问答：只观察 `token` + `done`
+2. 触发工具：记录 `tool_start` → `tool_end` → `new_response` → `done`
+3. 开启 RAG：确认出现 `retrieval` 事件
+4. 首轮会话：确认 `done` 后追加 `title` 事件
+5. 异常场景：观察 `error` 事件和前端展示
+
 ## 第 0 阶段：项目认知（第 1 天）
 
 ### 文件 1：`README.md`
